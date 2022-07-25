@@ -1,4 +1,7 @@
 [THIS IS CURRENTLY ONLY A FORK OF [deep-finder](https://gitlab.inria.fr/serpico/deep-finder) DEDICATED TO [napari-deepinder](https://github.com/deep-finder/napari-deepfinder)]
+[![License GNU GPL v3.0](https://img.shields.io/pypi/l/em-deepfinder.svg?color=green)](https://github.com/deep-finder/deep-finder/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/em-deepfinder.svg?color=green)](https://pypi.org/project/em-deepfinder)
+[![Python Version](https://img.shields.io/pypi/pyversions/em-deepfinder.svg?color=green)](https://python.org)
 
 # Deep Finder
 
