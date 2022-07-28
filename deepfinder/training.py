@@ -313,8 +313,12 @@ class Train(core.DeepFinder):
                                                              batch_pred.argmax(axis=-1).flatten(), average=None,
                                                              labels=self.label_list)
                 else:
-                    target_value = 1 if batch_target_valid.argmax(axis=-1).flatten() < 1 else 0
-                    pred_value = 1 if batch_pred.argmax(axis=-1).flatten() < 1 else 0
+                    target_value_raw = batch_target_valid.flatten()
+                    target_value = np.zeros(target_value_raw.shape)
+                    target_value[target_value_raw < 1] = 1
+                    pred_value_raw = batch_pred.flatten()
+                    pred_value = np.zeros(pred_value_raw.shape)
+                    pred_value[pred_value_raw < 1] = 1
                     scores = precision_recall_fscore_support(target_value,
                                                              pred_value, average=None,
                                                              labels=self.label_list)
