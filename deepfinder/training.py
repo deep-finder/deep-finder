@@ -302,6 +302,7 @@ class Train(core.DeepFinder):
                 else:
                     batch_data_valid, batch_target_valid, idx_list = self.generate_batch_from_array(data_list,
                                                                                                     target_list,
+                                                                                                    self.batch_size,
                                                                                                     objlist_valid)
                 loss_val = self.net.evaluate(batch_data_valid, batch_target_valid,
                                              verbose=0)  # TODO replace by loss() to reduce computation
