@@ -20,13 +20,12 @@ from .utils import core
 from .utils import common as cm
 
 
-
 class TargetBuilder(core.DeepFinder):
     def __init__(self):
         core.DeepFinder.__init__(self)
 
-        self.remove_flag = False # if true, places '0' at object voxels, instead of 'lbl'.
-                                 # Usefull in annotation tool, for removing objects from target
+        self.remove_flag = False  # if true, places '0' at object voxels, instead of 'lbl'.
+        # Usefull in annotation tool, for removing objects from target
 
     # Generates segmentation targets from object list. Here macromolecules are annotated with their shape.
     # INPUTS
@@ -68,18 +67,18 @@ class TargetBuilder(core.DeepFinder):
             the = objl[p]['the']
 
             ref = ref_list[lbl - 1]
-            centeroffset = np.int(np.floor(ref.shape[0] / 2)) # here we expect ref to be cubic
+            centeroffset = np.int(np.floor(ref.shape[0] / 2))  # here we expect ref to be cubic
 
             # Rotate ref:
-            if phi!=None and psi!=None and the!=None:
+            if phi != None and psi != None and the != None:
                 ref = cm.rotate_array(ref, (phi, psi, the))
                 ref = np.int8(np.round(ref))
 
             # Get the coordinates of object voxels in target_array
             obj_voxels = np.nonzero(ref == 1)
-            x_vox = obj_voxels[2] + x - centeroffset #+1
-            y_vox = obj_voxels[1] + y - centeroffset #+1
-            z_vox = obj_voxels[0] + z - centeroffset #+1
+            x_vox = obj_voxels[2] + x - centeroffset  # +1
+            y_vox = obj_voxels[1] + y - centeroffset  # +1
+            z_vox = obj_voxels[0] + z - centeroffset  # +1
 
             for idx in range(x_vox.size):
                 xx = x_vox[idx]
@@ -128,7 +127,7 @@ class TargetBuilder(core.DeepFinder):
             3D numpy array: Target array, where '0' for background class, {'1','2',...} for object classes.
         """
         Rmax = max(radius_list)
-        dim = [2*Rmax, 2*Rmax, 2*Rmax]
+        dim = [2 * Rmax, 2 * Rmax, 2 * Rmax]
         ref_list = []
         for idx in range(len(radius_list)):
             ref_list.append(cm.create_sphere(dim, radius_list[idx]))
@@ -141,7 +140,7 @@ class Train(core.DeepFinder):
     def __init__(self, Ncl, dim_in):
         core.DeepFinder.__init__(self)
         self.path_out = './'
-        self.h5_dset_name = 'dataset' # if training set is stored as .h5 file, specify here in which h5 dataset the arrays are stored
+        self.h5_dset_name = 'dataset'  # if training set is stored as .h5 file, specify here in which h5 dataset the arrays are stored
 
         # Network parameters:
         self.Ncl = Ncl  # Ncl
@@ -149,8 +148,8 @@ class Train(core.DeepFinder):
         self.net = models.my_model(self.dim_in, self.Ncl)
 
         self.label_list = []
-        for l in range(self.Ncl): self.label_list.append(l) # for precision_recall_fscore_support
-                                                            # (else bug if not all labels exist in batch)
+        for l in range(self.Ncl): self.label_list.append(l)  # for precision_recall_fscore_support
+        # (else bug if not all labels exist in batch)
 
         # Training parameters:
         self.batch_size = 25
@@ -166,6 +165,9 @@ class Train(core.DeepFinder):
 
         self.class_weight = None
         self.sample_weights = None  # np array same lenght as objl_train
+
+        # New attribute for distance map
+        self.distance_map = False  # if true adapt deepfinder for a distance map, used for filaments!
 
         self.check_attributes()
 
@@ -230,12 +232,17 @@ class Train(core.DeepFinder):
         self.check_attributes()
         self.check_arguments(path_data, path_target, objlist_train, objlist_valid)
 
+        # set the label list when distance_map used and Ncl set to 1 (instead of 2 classes for background and class)
+        if self.distance_map:
+            self.label_list = []
+            for l in range(2):
+                self.label_list.append(l)  # for precision_recall_fscore_support
 
         # Build network (not in constructor, else not possible to init model with weights from previous train round):
         self.net.compile(optimizer=self.optimizer, loss=self.loss, metrics=['accuracy'])
 
         # Load whole dataset:
-        if self.flag_direct_read == False:
+        if not self.flag_direct_read:
             self.display('Loading dataset ...')
             data_list, target_list = core.load_dataset(path_data, path_target, self.h5_dset_name)
 
@@ -243,13 +250,13 @@ class Train(core.DeepFinder):
 
         # Declare lists for storing training statistics:
         hist_loss_train = []
-        hist_acc_train  = []
+        hist_acc_train = []
         hist_loss_valid = []
-        hist_acc_valid  = []
-        hist_f1         = []
-        hist_recall     = []
-        hist_precision  = []
-        process_time    = []
+        hist_acc_valid = []
+        hist_f1 = []
+        hist_recall = []
+        hist_precision = []
+        process_time = []
 
         # Training loop:
         for e in range(self.epochs):
@@ -259,9 +266,11 @@ class Train(core.DeepFinder):
             list_acc_train = []
             for it in range(self.steps_per_epoch):
                 if self.flag_direct_read:
-                    batch_data, batch_target = self.generate_batch_direct_read(path_data, path_target, self.batch_size, objlist_train)
+                    batch_data, batch_target = self.generate_batch_direct_read(path_data, path_target, self.batch_size,
+                                                                               objlist_train)
                 else:
-                    batch_data, batch_target, idx_list = self.generate_batch_from_array(data_list, target_list, self.batch_size, objlist_train)
+                    batch_data, batch_target, idx_list = self.generate_batch_from_array(data_list, target_list,
+                                                                                        self.batch_size, objlist_train)
 
                 if self.sample_weights is not None:
                     sample_weight = self.sample_weights[idx_list]
@@ -272,7 +281,8 @@ class Train(core.DeepFinder):
                                                      class_weight=self.class_weight,
                                                      sample_weight=sample_weight)
 
-                self.display('epoch %d/%d - it %d/%d - loss: %0.3f - acc: %0.3f' % (e + 1, self.epochs, it + 1, self.steps_per_epoch, loss_train[0], loss_train[1]))
+                self.display('epoch %d/%d - it %d/%d - loss: %0.3f - acc: %0.3f' % (
+                    e + 1, self.epochs, it + 1, self.steps_per_epoch, loss_train[0], loss_train[1]))
                 list_loss_train.append(loss_train[0])
                 list_acc_train.append(loss_train[1])
             hist_loss_train.append(list_loss_train)
@@ -280,19 +290,33 @@ class Train(core.DeepFinder):
 
             # VALIDATION (compute statistics to monitor training):
             list_loss_valid = []
-            list_acc_valid  = []
-            list_f1         = []
-            list_recall     = []
-            list_precision  = []
+            list_acc_valid = []
+            list_f1 = []
+            list_recall = []
+            list_precision = []
             for it in range(self.steps_per_valid):
                 if self.flag_direct_read:
-                    batch_data_valid, batch_target_valid = self.generate_batch_direct_read(path_data, path_target, self.batch_size, objlist_valid)
+                    batch_data_valid, batch_target_valid = self.generate_batch_direct_read(path_data, path_target,
+                                                                                           self.batch_size,
+                                                                                           objlist_valid)
                 else:
-                    batch_data_valid, batch_target_valid, idx_list = self.generate_batch_from_array(data_list, target_list, self.batch_size, objlist_valid)
-                loss_val = self.net.evaluate(batch_data_valid, batch_target_valid, verbose=0) # TODO replace by loss() to reduce computation
+                    batch_data_valid, batch_target_valid, idx_list = self.generate_batch_from_array(data_list,
+                                                                                                    target_list,
+                                                                                                    objlist_valid)
+                loss_val = self.net.evaluate(batch_data_valid, batch_target_valid,
+                                             verbose=0)  # TODO replace by loss() to reduce computation
                 batch_pred = self.net.predict(batch_data_valid)
-                #loss_val = K.eval(losses.tversky_loss(K.constant(batch_target_valid), K.constant(batch_pred)))
-                scores = precision_recall_fscore_support(batch_target_valid.argmax(axis=-1).flatten(), batch_pred.argmax(axis=-1).flatten(), average=None, labels=self.label_list)
+                # loss_val = K.eval(losses.tversky_loss(K.constant(batch_target_valid), K.constant(batch_pred)))
+                if not self.distance_map:
+                    scores = precision_recall_fscore_support(batch_target_valid.argmax(axis=-1).flatten(),
+                                                             batch_pred.argmax(axis=-1).flatten(), average=None,
+                                                             labels=self.label_list)
+                else:
+                    target_value = 1 if batch_target_valid.argmax(axis=-1).flatten() < 1 else 0
+                    pred_value = 1 if batch_pred.argmax(axis=-1).flatten() < 1 else 0
+                    scores = precision_recall_fscore_support(target_value,
+                                                             pred_value, average=None,
+                                                             labels=self.label_list)
 
                 list_loss_valid.append(loss_val[0])
                 list_acc_valid.append(loss_val[1])
@@ -310,23 +334,24 @@ class Train(core.DeepFinder):
             process_time.append(end - start)
             self.display('-------------------------------------------------------------')
             self.display('EPOCH %d/%d - valid loss: %0.3f - valid acc: %0.3f - %0.2fsec' % (
-            e + 1, self.epochs, loss_val[0], loss_val[1], end - start))
-
+                e + 1, self.epochs, loss_val[0], loss_val[1], end - start))
 
             # Save and plot training history:
             history = {'loss': hist_loss_train, 'acc': hist_acc_train, 'val_loss': hist_loss_valid,
                        'val_acc': hist_acc_valid, 'val_f1': hist_f1, 'val_recall': hist_recall,
                        'val_precision': hist_precision}
-            core.save_history(history, self.path_out+'net_train_history.h5')
-            core.plot_history(history, self.path_out+'net_train_history_plot.png')
+            core.save_history(history, self.path_out + 'net_train_history.h5')
+            core.plot_history(history, self.path_out + 'net_train_history_plot.png')
 
             self.display('=============================================================')
 
+            # Don't include optimizer state in saving as it's making the save fail
             if (e + 1) % 10 == 0:  # save weights every 10 epochs
-                self.net.save(self.path_out+'net_weights_epoch' + str(e + 1) + '.h5')
+                self.net.save(self.path_out + 'net_weights_epoch' + str(e + 1) + '.h5', include_optimizer=False)
 
         self.display("Model took %0.2f seconds to train" % np.sum(process_time))
-        self.net.save(self.path_out+'net_weights_FINAL.h5')
+        # Don't include optimizer state in saving as it's making the save fail
+        self.net.save(self.path_out + 'net_weights_FINAL.h5', include_optimizer=False)
 
     def check_arguments(self, path_data, path_target, objlist_train, objlist_valid):
         self.is_list(path_data, 'path_data')
@@ -358,7 +383,10 @@ class Train(core.DeepFinder):
         p_in = np.int(np.floor(self.dim_in / 2))
 
         batch_data = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, 1))
-        batch_target = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, self.Ncl))
+        if not self.distance_map:
+            batch_target = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, self.Ncl))
+        else:
+            batch_target = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, 1))
 
         # The batch is generated by randomly sampling data patches.
         if self.flag_batch_bootstrap:  # choose from bootstrapped objlist
@@ -380,16 +408,19 @@ class Train(core.DeepFinder):
 
             # Load data and target patches:
             h5file = h5py.File(path_data[tomoID], 'r')
-            patch_data = h5file['dataset'][z-p_in:z+p_in, y-p_in:y+p_in, x-p_in:x+p_in]
+            patch_data = h5file['dataset'][z - p_in:z + p_in, y - p_in:y + p_in, x - p_in:x + p_in]
             h5file.close()
 
             h5file = h5py.File(path_target[tomoID], 'r')
-            patch_target = h5file['dataset'][z-p_in:z+p_in, y-p_in:y+p_in, x-p_in:x+p_in]
+            patch_target = h5file['dataset'][z - p_in:z + p_in, y - p_in:y + p_in, x - p_in:x + p_in]
             h5file.close()
 
             # Process the patches in order to be used by network:
             patch_data = (patch_data - np.mean(patch_data)) / np.std(patch_data)  # normalize
-            patch_target_onehot = to_categorical(patch_target, self.Ncl)
+            if not self.distance_map:
+                patch_target_onehot = to_categorical(patch_target, self.Ncl)
+            else:
+                patch_target_onehot = np.expand_dims(patch_target, axis=3)
 
             # Store into batch array:
             batch_data[i, :, :, :, 0] = patch_data
@@ -417,7 +448,10 @@ class Train(core.DeepFinder):
         p_in = np.int(np.floor(self.dim_in / 2))
 
         batch_data = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, 1))
-        batch_target = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, self.Ncl))
+        if not self.distance_map:
+            batch_target = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, self.Ncl))
+        else:
+            batch_target = np.zeros((batch_size, self.dim_in, self.dim_in, self.dim_in, 1))
 
         # The batch is generated by randomly sampling data patches.
         if self.flag_batch_bootstrap:  # choose from bootstrapped objlist
@@ -442,12 +476,15 @@ class Train(core.DeepFinder):
             x, y, z = core.get_patch_position(tomodim, p_in, objlist[index], self.Lrnd)
 
             # Get patch:
-            patch_data   = sample_data[  z-p_in:z+p_in, y-p_in:y+p_in, x-p_in:x+p_in]
-            patch_target = sample_target[z-p_in:z+p_in, y-p_in:y+p_in, x-p_in:x+p_in]
+            patch_data = sample_data[z - p_in:z + p_in, y - p_in:y + p_in, x - p_in:x + p_in]
+            patch_target = sample_target[z - p_in:z + p_in, y - p_in:y + p_in, x - p_in:x + p_in]
 
             # Process the patches in order to be used by network:
             patch_data = (patch_data - np.mean(patch_data)) / np.std(patch_data)  # normalize
-            patch_target_onehot = to_categorical(patch_target, self.Ncl)
+            if not self.distance_map:
+                patch_target_onehot = to_categorical(patch_target, self.Ncl)
+            else:
+                patch_target_onehot = np.expand_dims(patch_target, axis=3)
 
             # Store into batch array:
             batch_data[i, :, :, :, 0] = patch_data
@@ -459,4 +496,3 @@ class Train(core.DeepFinder):
                 batch_target[i] = np.rot90(batch_target[i], k=2, axes=(0, 2))
 
         return batch_data, batch_target, idx_list
-
