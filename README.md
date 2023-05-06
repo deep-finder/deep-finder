@@ -58,7 +58,7 @@ Before installation, you need a python environment on your machine. If this is n
 ### NEW easy installation process
 In your python environment, do:
 ```
-pip install deepfinder_em
+pip install em-deepfinder
 ```
 
 ### Legacy installation method
